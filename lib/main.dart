@@ -1,5 +1,10 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+// import imnage picker
+import 'package:image_picker/image_picker.dart';
 
 Future<void> main() async {
   await Supabase.initialize(
@@ -22,9 +27,245 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: Scaffold(
-        body: AdminUserWidget(),
-      ),
+      home: AccountPage(),
+      /*Scaffold(
+        body: Avatar(
+          imageUrl: null,
+          onUpload: (url) {
+            print(url);
+          },
+        ),
+      ),*/
+    );
+  }
+}
+
+class AccountPage extends StatefulWidget {
+  const AccountPage({super.key});
+
+  @override
+  _AccountPageState createState() => _AccountPageState();
+}
+
+class _AccountPageState extends State<AccountPage> {
+  final _usernameController = TextEditingController();
+  final _websiteController = TextEditingController();
+
+  String? _avatarUrl;
+  var _loading = false;
+
+  /// Called when image has been uploaded to Supabase storage from within Avatar widget
+  Future<void> _onUpload(String imageUrl) async {
+    try {
+/*
+      final userId = supabase.auth.currentUser!.id;
+*/
+      await supabase.from('profiles').upsert({
+/*
+        'id': userId,
+*/
+        'avatar_url': imageUrl,
+      });
+      if (mounted) {
+        const SnackBar(
+          content: Text('Updated your profile image!'),
+        );
+      }
+    } on PostgrestException catch (error) {
+      print('postgrest error');
+      print(error);
+      SnackBar(
+        content: Text(error.message),
+        backgroundColor: Theme.of(context).colorScheme.error,
+      );
+    } catch (error) {
+      print('error');
+      print(error);
+      SnackBar(
+        content: const Text('Unexpected error occurred'),
+        backgroundColor: Theme.of(context).colorScheme.error,
+      );
+    }
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _avatarUrl = imageUrl;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _websiteController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Profile')),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
+              children: [
+                Avatar(
+                  imageUrl: _avatarUrl,
+                  onUpload: _onUpload,
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+class UploadImageWidget extends StatefulWidget {
+  UploadImageWidget({super.key});
+
+  @override
+  State<UploadImageWidget> createState() => _UploadImageWidgetState();
+}
+
+class Avatar extends StatefulWidget {
+  const Avatar({
+    super.key,
+    required this.imageUrl,
+    required this.onUpload,
+  });
+
+  final String? imageUrl;
+  final void Function(String) onUpload;
+
+  @override
+  _AvatarState createState() => _AvatarState();
+}
+
+class _AvatarState extends State<Avatar> {
+  bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        if (widget.imageUrl == null || widget.imageUrl!.isEmpty)
+          Container(
+            width: 150,
+            height: 150,
+            color: Colors.grey,
+            child: const Center(
+              child: Text('No Image'),
+            ),
+          )
+        else
+          Image.network(
+            widget.imageUrl!,
+            width: 150,
+            height: 150,
+            fit: BoxFit.cover,
+          ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _upload,
+          child: const Text('Upload'),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _upload() async {
+    final picker = ImagePicker();
+    final imageFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 300,
+      maxHeight: 300,
+    );
+    if (imageFile == null) {
+      return;
+    }
+    setState(() => _isLoading = true);
+
+    try {
+      final bytes = await imageFile.readAsBytes();
+      final fileExt = imageFile.path.split('.').last;
+      final fileName = '${DateTime.now().toIso8601String()}.$fileExt';
+      final filePath = fileName;
+      await supabase.storage.from('profiles').uploadBinary(
+            filePath,
+            bytes,
+            fileOptions: FileOptions(contentType: imageFile.mimeType),
+          );
+      final imageUrlResponse = await supabase.storage
+          .from('profiles')
+          .createSignedUrl(filePath, 60 * 60 * 24 * 365 * 10);
+      widget.onUpload(imageUrlResponse);
+    } on StorageException catch (error) {
+      print('storage error');
+      print(error);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.message),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    } catch (error) {
+      print('error');
+      print(error);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Unexpected error occurred'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
+
+    setState(() => _isLoading = false);
+  }
+}
+
+class _UploadImageWidgetState extends State<UploadImageWidget> {
+  final ImagePicker _picker = ImagePicker();
+
+  XFile? _image;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        if (_image != null)
+          kIsWeb ? Image.network(_image!.path) : Image.file(File(_image!.path))
+        else
+          ElevatedButton(
+            onPressed: () async {
+              final file = await _picker.pickImage(source: ImageSource.gallery);
+
+              if (file == null) return;
+              setState(() {
+                _image = file;
+              });
+            },
+            child: Text('Upload Image'),
+          ),
+        if (_image != null)
+          ElevatedButton(
+            onPressed: () async {
+              final response = await supabase.storage
+                  .from('avatars')
+                  .upload('avatar.png', File(_image!.path));
+              print(response);
+            },
+            child: Text('Upload Image to Supabase'),
+          ),
+      ],
     );
   }
 }
