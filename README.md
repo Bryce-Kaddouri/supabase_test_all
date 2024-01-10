@@ -1,17 +1,14 @@
-# supabase_test_1
+# 1- Create Supabase project
+# 2 - Setup custom claims for Supabase
 
-A new Flutter project.
+Go the following link : https://github.com/supabase-community/supabase-custom-claims, and open the install.sql file. 
+Then copy the content of the file and paste it in the SQL editor of your Supabase project.
 
-## Getting Started
+# 3- Create the first Admin user
 
-This project is a starting point for a Flutter application.
+Go to the Supabase admin panel and create a new user and copy the id of this user. Then go to the SQL editor and run the following query:
 
-A few resources to get you started if this is your first Flutter project:
+```sql
+select set_claim('03acaa13-7989-45c1-8dfb-6eeb7cf0b92e', 'role', '"ADMIN"');
+```
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
-# supabase_test_all
