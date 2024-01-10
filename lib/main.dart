@@ -23,12 +23,19 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Supabase Flutter Demo',
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-      ),
-      home: AccountPage(),
-      /*Scaffold(
+        title: 'Supabase Flutter Demo',
+        theme: ThemeData(
+          primarySwatch: Colors.blue,
+        ),
+        home: Scaffold(
+          body: Avatar(
+            imageUrl: null,
+            onUpload: (String url) {
+              print(url);
+            },
+          ),
+        )
+        /*Scaffold(
         body: Avatar(
           imageUrl: null,
           onUpload: (url) {
@@ -36,11 +43,11 @@ class MyApp extends StatelessWidget {
           },
         ),
       ),*/
-    );
+        );
   }
 }
 
-class AccountPage extends StatefulWidget {
+/*class AccountPage extends StatefulWidget {
   const AccountPage({super.key});
 
   @override
@@ -57,13 +64,13 @@ class _AccountPageState extends State<AccountPage> {
   /// Called when image has been uploaded to Supabase storage from within Avatar widget
   Future<void> _onUpload(String imageUrl) async {
     try {
-/*
+*/ /*
       final userId = supabase.auth.currentUser!.id;
-*/
+*/ /*
       await supabase.from('profiles').upsert({
-/*
+*/ /*
         'id': userId,
-*/
+*/ /*
         'avatar_url': imageUrl,
       });
       if (mounted) {
@@ -124,23 +131,16 @@ class _AccountPageState extends State<AccountPage> {
             ),
     );
   }
-}
-
-class UploadImageWidget extends StatefulWidget {
-  UploadImageWidget({super.key});
-
-  @override
-  State<UploadImageWidget> createState() => _UploadImageWidgetState();
-}
+}*/
 
 class Avatar extends StatefulWidget {
-  const Avatar({
+  Avatar({
     super.key,
     required this.imageUrl,
     required this.onUpload,
   });
 
-  final String? imageUrl;
+  String? imageUrl;
   final void Function(String) onUpload;
 
   @override
@@ -192,18 +192,35 @@ class _AvatarState extends State<Avatar> {
 
     try {
       final bytes = await imageFile.readAsBytes();
-      final fileExt = imageFile.path.split('.').last;
-      final fileName = '${DateTime.now().toIso8601String()}.$fileExt';
-      final filePath = fileName;
-      await supabase.storage.from('profiles').uploadBinary(
-            filePath,
-            bytes,
-            fileOptions: FileOptions(contentType: imageFile.mimeType),
-          );
-      final imageUrlResponse = await supabase.storage
+
+      File file = File(imageFile.path);
+      print(file);
+      await supabase.storage
+          .from('profiles')
+          .uploadBinary('profiles/test1.jpg', bytes,
+              fileOptions: FileOptions(
+                contentType: 'image/jpg',
+                upsert: true,
+              ));
+      String url =
+          supabase.storage.from('profiles').getPublicUrl('profiles/test1.jpg');
+      print(url);
+      setState(() {
+        widget.imageUrl = url;
+      });
+      /*await supabase.storage.from('profiles').upload('profiles/test.jpg', file,
+          fileOptions: FileOptions(
+              upsert: true,
+              contentType:
+                  'image/jpg'));*/ // await supabase.storage.from('profiles').uploadBinary(
+      //       'profiles/test.jpeg',
+      //       bytes,
+      //       fileOptions: FileOptions(contentType: imageFile.mimeType),
+      //     );
+      /*final imageUrlResponse = await supabase.storage
           .from('profiles')
           .createSignedUrl(filePath, 60 * 60 * 24 * 365 * 10);
-      widget.onUpload(imageUrlResponse);
+      widget.onUpload(imageUrlResponse);*/
     } on StorageException catch (error) {
       print('storage error');
       print(error);
@@ -229,44 +246,6 @@ class _AvatarState extends State<Avatar> {
     }
 
     setState(() => _isLoading = false);
-  }
-}
-
-class _UploadImageWidgetState extends State<UploadImageWidget> {
-  final ImagePicker _picker = ImagePicker();
-
-  XFile? _image;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        if (_image != null)
-          kIsWeb ? Image.network(_image!.path) : Image.file(File(_image!.path))
-        else
-          ElevatedButton(
-            onPressed: () async {
-              final file = await _picker.pickImage(source: ImageSource.gallery);
-
-              if (file == null) return;
-              setState(() {
-                _image = file;
-              });
-            },
-            child: Text('Upload Image'),
-          ),
-        if (_image != null)
-          ElevatedButton(
-            onPressed: () async {
-              final response = await supabase.storage
-                  .from('avatars')
-                  .upload('avatar.png', File(_image!.path));
-              print(response);
-            },
-            child: Text('Upload Image to Supabase'),
-          ),
-      ],
-    );
   }
 }
 
